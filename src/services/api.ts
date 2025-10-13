@@ -93,14 +93,31 @@ export const contentAPI = {
       method: 'GET',
     });
     // backend returns an array for the dashboard; normalize to { contents }
-    if (Array.isArray(data)) return { contents: data };
+    // Map backend fields to frontend shape so UI doesn't need to know backend naming
+    if (Array.isArray(data)) {
+      const mapped = data.map((item: any) => ({
+        _id: item._id,
+        topic: item.topic || item.name || "",
+        // backend uses `type` and `content` and `created_at`
+        contentType: item.type || item.contentType || "",
+        goal: item.goal || "",
+        tone: item.tone || "",
+        // frontend expects `generatedText`
+        generatedText: item.generatedText || item.content || "",
+        // frontend expects `createdAt`
+        createdAt: item.createdAt || item.created_at || item.created || "",
+        mood: item.mood,
+        user_id: item.user_id,
+      }));
+      return { contents: mapped };
+    }
     return data;
   },
   
   delete: async (id: string) => {
-    return apiCall(API_ENDPOINTS.DELETE, {
+    // Call DELETE /content/:id
+    return apiCall(`${API_ENDPOINTS.DELETE}/${id}`, {
       method: 'DELETE',
-      body: JSON.stringify({ id }),
     });
   },
 };

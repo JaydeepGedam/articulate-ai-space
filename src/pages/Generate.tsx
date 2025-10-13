@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,27 @@ const Generate = () => {
   const [goal, setGoal] = useState("");
   const [tone, setTone] = useState("");
   const [mood, setMood] = useState([50]);
+  const [canSave, setCanSave] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const location = useLocation();
+
+  // If navigated from Dashboard with viewContent or regenerate, prefill fields
+  useEffect(() => {
+    const state = (location && (location.state as any)) || {};
+    const view = state.viewContent || state.regenerate;
+    if (view) {
+      setTopic(view.topic || "");
+      // backend/frontend mapping might use contentType or type
+      setContentType(view.contentType || view.type || "");
+      setGoal(view.goal || "");
+      setTone(view.tone || "");
+      setGeneratedContent(view.generatedText || view.content || "");
+      // When we navigate from dashboard with existing content, disable Save
+      // until the user regenerates content (or generates new content)
+      setCanSave(false);
+    }
+  }, [location]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -52,8 +71,9 @@ const Generate = () => {
         tone,
         mood: mood[0],
       });
-      
       setGeneratedContent(response.content);
+      // After successful generation, enable Save
+      setCanSave(true);
       toast.success("Content generated successfully!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to generate content");
@@ -61,12 +81,13 @@ const Generate = () => {
       setIsGenerating(false);
     }
   };
-
   const handleRegenerate = () => {
     if (!generatedContent) {
       toast.error("Generate content first");
       return;
     }
+    // When regenerating, disable save until the new generation finishes
+    setCanSave(false);
     handleGenerate();
   };
 
@@ -84,6 +105,10 @@ const Generate = () => {
       toast.error("No content to save");
       return;
     }
+    if (!canSave) {
+      toast.error("Please regenerate or modify content before saving to avoid duplicates");
+      return;
+    }
 
     try {
       await contentAPI.save({
@@ -95,6 +120,8 @@ const Generate = () => {
         generatedText: generatedContent,
       });
       toast.success("Content saved to dashboard!");
+      // after saving, prevent immediate duplicate saves
+      setCanSave(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save content");
     }
@@ -221,9 +248,10 @@ const Generate = () => {
                     value={generatedContent}
                     onChange={(e) => setGeneratedContent(e.target.value)}
                     className="min-h-[400px] font-mono text-sm"
+                    readOnly
                   />
                   <div className="flex gap-2 flex-wrap">
-                    <Button onClick={handleRegenerate} variant="outline" className="gap-2">
+                    <Button onClick={handleRegenerate} variant="outline" className="gap-2" disabled={isGenerating}>
                       <RotateCw className="w-4 h-4" />
                       Regenerate
                     </Button>
@@ -231,7 +259,7 @@ const Generate = () => {
                       <Copy className="w-4 h-4" />
                       Copy
                     </Button>
-                    <Button onClick={handleSave} className="gap-2">
+                    <Button onClick={handleSave} className="gap-2" disabled={!canSave}>
                       <Save className="w-4 h-4" />
                       Save
                     </Button>

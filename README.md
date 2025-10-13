@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+# Welcome to Writaholic
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/9da3e2aa-d7fc-4f1a-aa1a-3dad4123d7da
+**Project**: Writaholic
 
 ## How can I edit this code?
 

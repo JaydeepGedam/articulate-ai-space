@@ -1,68 +1,39 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Copy, RotateCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { contentAPI } from "@/services/api";
 
-const mockHistory = [
-  {
-    id: 1,
-    title: "10 Tips for Productivity",
-    type: "Blog",
-    goal: "Educate",
-    tone: "Friendly",
-    date: "2025-10-10",
-    time: "14:30",
-    content: "Discover proven strategies to boost your daily productivity and achieve more with less effort...",
-  },
-  {
-    id: 2,
-    title: "New Product Launch",
-    type: "LinkedIn Post",
-    goal: "Sell",
-    tone: "Persuasive",
-    date: "2025-10-09",
-    time: "10:15",
-    content: "Excited to announce our revolutionary new product that will transform how you work...",
-  },
-  {
-    id: 3,
-    title: "Premium Headphones",
-    type: "Product Description",
-    goal: "Persuade",
-    tone: "Formal",
-    date: "2025-10-08",
-    time: "16:45",
-    content: "Experience crystal-clear audio with our state-of-the-art wireless headphones...",
-  },
-  {
-    id: 4,
-    title: "Marketing Strategy Guide",
-    type: "Blog",
-    goal: "Educate",
-    tone: "Formal",
-    date: "2025-10-07",
-    time: "09:20",
-    content: "Learn the essential marketing strategies that top brands use to dominate their markets...",
-  },
-  {
-    id: 5,
-    title: "Summer Sale Announcement",
-    type: "LinkedIn Post",
-    goal: "Sell",
-    tone: "Witty",
-    date: "2025-10-06",
-    time: "11:00",
-    content: "Hot deals are here! Don't miss our biggest summer sale yet with up to 50% off...",
-  },
-];
+interface Content {
+  _id: string;
+  topic: string;
+  contentType: string;
+  goal: string;
+  tone: string;
+  generatedText: string;
+  createdAt: string;
+}
 
 const History = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  const [history, setHistory] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -70,13 +41,62 @@ const History = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    if (isAuthenticated) loadHistory();
+  }, [isAuthenticated]);
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const res = await contentAPI.list();
+      setHistory(res.contents || []);
+    } catch (err) {
+      toast.error("Failed to load history");
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCopy = (content: string) => {
+    if (!content) {
+      toast.error("No content to copy");
+      return;
+    }
     navigator.clipboard.writeText(content);
     toast.success("Copied to clipboard!");
   };
 
-  const handleDelete = (id: number) => {
-    toast.success("Content deleted!");
+  const handleDelete = async (id: string) => {
+    try {
+      await contentAPI.delete(id);
+      toast.success("Content deleted");
+      // reload history
+      loadHistory();
+    } catch (err) {
+      toast.error("Failed to delete content");
+    }
+  };
+
+  const handleView = (content: Content) => {
+    navigate("/generate", { state: { viewContent: content } });
+  };
+
+  const handleRegenerate = (content: Content) => {
+    navigate("/generate", { state: { regenerate: content } });
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const typeColors: Record<string, string> = {
@@ -95,7 +115,11 @@ const History = () => {
           </p>
         </div>
 
-        {mockHistory.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading history...</p>
+          </div>
+        ) : history.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="max-w-md mx-auto">
               <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -110,9 +134,9 @@ const History = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {mockHistory.map((item, index) => (
+            {history.map((item, index) => (
               <Card
-                key={item.id}
+                key={item._id}
                 className="hover:shadow-md transition-shadow animate-slide-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
@@ -120,27 +144,27 @@ const History = () => {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <Badge className={typeColors[item.type] || "bg-gray-100 text-gray-800"}>
-                          {item.type}
+                        <Badge className={typeColors[item.contentType] || "bg-gray-100 text-gray-800"}>
+                          {item.contentType}
                         </Badge>
                         <Badge variant="outline">{item.tone}</Badge>
                         <Badge variant="outline">{item.goal}</Badge>
                       </div>
-                      <CardTitle className="text-xl mb-1">{item.title}</CardTitle>
+                      <CardTitle className="text-xl mb-1">{item.topic}</CardTitle>
                       <CardDescription className="text-sm">
-                        {item.date} at {item.time}
+                        {formatDate(item.createdAt)}
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground mb-4 line-clamp-2">{item.content}</p>
+                  <p className="text-muted-foreground mb-4 line-clamp-2">{item.generatedText}</p>
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
                       className="gap-2"
-                      onClick={() => handleCopy(item.content)}
+                      onClick={() => handleCopy(item.generatedText)}
                     >
                       <Copy className="w-4 h-4" />
                       Copy
@@ -149,20 +173,30 @@ const History = () => {
                       size="sm"
                       variant="outline"
                       className="gap-2"
-                      onClick={() => navigate("/generate")}
+                      onClick={() => handleRegenerate(item)}
                     >
                       <RotateCw className="w-4 h-4" />
                       Regenerate
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" aria-label="Delete content">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete content</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this content? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(item._id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>
