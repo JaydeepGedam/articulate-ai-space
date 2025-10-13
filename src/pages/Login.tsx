@@ -6,13 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { authAPI } from "@/services/api";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -20,10 +21,16 @@ const Login = () => {
       return;
     }
 
-    // Mock authentication
-    localStorage.setItem("isAuthenticated", "true");
-    toast.success("Welcome back!");
-    navigate("/dashboard");
+    try {
+      const response = await authAPI.login(email, password);
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("authToken", response.token);
+      localStorage.setItem("userName", response.user.name);
+      toast.success("Welcome back!");
+      navigate("/dashboard");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
+    }
   };
 
   return (

@@ -5,35 +5,64 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save } from "lucide-react";
 import { toast } from "sonner";
+import { userAPI } from "@/services/api";
 
 const Settings = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
 
-  const [defaultTone, setDefaultTone] = useState(
-    localStorage.getItem("defaultTone") || "Friendly"
-  );
-  const [defaultContentType, setDefaultContentType] = useState(
-    localStorage.getItem("defaultContentType") || "Blog"
-  );
-  const [defaultGoal, setDefaultGoal] = useState(
-    localStorage.getItem("defaultGoal") || "Educate"
-  );
+  const [defaultTone, setDefaultTone] = useState("");
+  const [defaultContentType, setDefaultContentType] = useState("");
+  const [defaultGoal, setDefaultGoal] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
+    } else {
+      loadPreferences();
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSave = () => {
-    localStorage.setItem("defaultTone", defaultTone);
-    localStorage.setItem("defaultContentType", defaultContentType);
-    localStorage.setItem("defaultGoal", defaultGoal);
-    toast.success("Settings saved successfully!");
+  const loadPreferences = async () => {
+    try {
+      setLoading(true);
+      const response = await userAPI.getPreferences();
+      setDefaultTone(response.preferences?.defaultTone || "");
+      setDefaultContentType(response.preferences?.defaultContentType || "");
+      setDefaultGoal(response.preferences?.defaultGoal || "");
+    } catch (error) {
+      setDefaultTone("");
+      setDefaultContentType("");
+      setDefaultGoal("");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    try {
+      await userAPI.updatePreferences({
+        defaultTone,
+        defaultContentType,
+        defaultGoal,
+      });
+      toast.success("Preferences saved successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save preferences");
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout showNav>
+        <div className="max-w-2xl mx-auto">
+          <p className="text-center text-muted-foreground">Loading preferences...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout showNav>
@@ -54,25 +83,10 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="defaultTone">Default Tone</Label>
-              <Select value={defaultTone} onValueChange={setDefaultTone}>
-                <SelectTrigger id="defaultTone">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Formal">Formal</SelectItem>
-                  <SelectItem value="Friendly">Friendly</SelectItem>
-                  <SelectItem value="Witty">Witty</SelectItem>
-                  <SelectItem value="Persuasive">Persuasive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="defaultContentType">Default Content Type</Label>
               <Select value={defaultContentType} onValueChange={setDefaultContentType}>
                 <SelectTrigger id="defaultContentType">
-                  <SelectValue />
+                  <SelectValue placeholder="Select default type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Blog">Blog Post</SelectItem>
@@ -86,7 +100,7 @@ const Settings = () => {
               <Label htmlFor="defaultGoal">Default Goal</Label>
               <Select value={defaultGoal} onValueChange={setDefaultGoal}>
                 <SelectTrigger id="defaultGoal">
-                  <SelectValue />
+                  <SelectValue placeholder="Select default goal" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Educate">Educate</SelectItem>
@@ -97,29 +111,24 @@ const Settings = () => {
               </Select>
             </div>
 
-            <Button onClick={handleSave} className="w-full gap-2">
-              <Save className="w-4 h-4" />
-              Save Settings
-            </Button>
-          </CardContent>
-        </Card>
+            <div className="space-y-2">
+              <Label htmlFor="defaultTone">Default Tone</Label>
+              <Select value={defaultTone} onValueChange={setDefaultTone}>
+                <SelectTrigger id="defaultTone">
+                  <SelectValue placeholder="Select default tone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Formal">Formal</SelectItem>
+                  <SelectItem value="Friendly">Friendly</SelectItem>
+                  <SelectItem value="Witty">Witty</SelectItem>
+                  <SelectItem value="Persuasive">Persuasive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>About</CardTitle>
-            <CardDescription>Application information</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Version</span>
-              <span className="font-medium">1.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Account</span>
-              <span className="font-medium">
-                {localStorage.getItem("userName") || "User"}
-              </span>
-            </div>
+            <Button onClick={handleSave} className="w-full">
+              Save Preferences
+            </Button>
           </CardContent>
         </Card>
       </div>

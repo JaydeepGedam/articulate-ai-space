@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Sparkles, Copy, RotateCw, Save } from "lucide-react";
 import { toast } from "sonner";
+import { contentAPI } from "@/services/api";
 
 const Generate = () => {
   const navigate = useNavigate();
@@ -43,14 +44,22 @@ const Generate = () => {
 
     setIsGenerating(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const mockContent = `# ${topic}\n\nThis is a ${tone.toLowerCase()} ${contentType.toLowerCase()} designed to ${goal.toLowerCase()}.\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.\n\nKey points:\n- Engaging and well-structured content\n- Tailored to your specific needs\n- Professional tone and style\n\nThis content has been generated with a ${getMoodEmoji(mood[0])} mood to perfectly match your requirements.`;
+    try {
+      const response = await contentAPI.generate({
+        topic,
+        contentType,
+        goal,
+        tone,
+        mood: mood[0],
+      });
       
-      setGeneratedContent(mockContent);
-      setIsGenerating(false);
+      setGeneratedContent(response.content);
       toast.success("Content generated successfully!");
-    }, 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate content");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleRegenerate = () => {
@@ -70,12 +79,25 @@ const Generate = () => {
     toast.success("Copied to clipboard!");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!generatedContent) {
       toast.error("No content to save");
       return;
     }
-    toast.success("Content saved to dashboard!");
+
+    try {
+      await contentAPI.save({
+        topic,
+        contentType,
+        goal,
+        tone,
+        mood: mood[0],
+        generatedText: generatedContent,
+      });
+      toast.success("Content saved to dashboard!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save content");
+    }
   };
 
   return (
