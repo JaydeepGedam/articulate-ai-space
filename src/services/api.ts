@@ -17,11 +17,16 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  // ensure GET requests do not use browser cache which can return 304
+  const method = (options.method || 'GET').toString().toUpperCase();
+  const fetchOptions: RequestInit = {
     ...options,
     headers,
-  });
+    // prevent cached GET responses
+    ...(method === 'GET' ? { cache: 'no-store' } : {}),
+  };
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -84,9 +89,12 @@ export const contentAPI = {
   },
   
   list: async () => {
-    return apiCall(API_ENDPOINTS.LIST, {
+    const data = await apiCall(API_ENDPOINTS.LIST, {
       method: 'GET',
     });
+    // backend returns an array for the dashboard; normalize to { contents }
+    if (Array.isArray(data)) return { contents: data };
+    return data;
   },
   
   delete: async (id: string) => {
