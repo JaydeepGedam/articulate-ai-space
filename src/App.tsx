@@ -1,4 +1,4 @@
-//this is my new imports for App.tsx
+//imports for App.jsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
